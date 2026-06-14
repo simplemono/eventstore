@@ -1,0 +1,7 @@
+{:paths ["src"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+        simplemono/eventstore-protocols {:local/root "../protocols"}
+        simplemono/eventstore-s3 {:local/root "../s3"}}
+ :aliases
+ {:test {:extra-paths ["test"]
+         :main-opts ["-m" "simplemono.eventstore.s3-packs-test"]}}}

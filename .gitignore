@@ -1,0 +1,9 @@
+.cpcache/
+.clj-kondo/.cache/
+.lsp/.cache/
+target/
+*.class
+*.jar
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
