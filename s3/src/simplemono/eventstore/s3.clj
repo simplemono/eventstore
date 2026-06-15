@@ -21,6 +21,7 @@
            (software.amazon.awssdk.regions Region)
            (software.amazon.awssdk.services.s3 S3Client)
            (software.amazon.awssdk.services.s3.model GetObjectRequest
+                                                      HeadObjectRequest
                                                       ListObjectsV2Request
                                                       ListObjectsV2Response
                                                       NoSuchKeyException
@@ -85,11 +86,10 @@
             nil))))))
 
 (defn- gap!
-  [commit-number expected]
+  [commit-number]
   (throw (ex-info "Append would create a gap"
                   {:error :gap
-                   :commit-number commit-number
-                   :expected expected})))
+                   :commit-number commit-number})))
 
 (defn- ambiguous!
   [commit-number commit cause]
@@ -143,6 +143,15 @@
       (.overrideConfiguration (override headers false))
       (.build)))
 
+(defn- head-object-request
+  ^HeadObjectRequest
+  [bucket key headers]
+  (-> (HeadObjectRequest/builder)
+      (.bucket bucket)
+      (.key key)
+      (.overrideConfiguration (override headers false))
+      (.build)))
+
 (defn- list-objects-request
   ^ListObjectsV2Request
   [bucket prefix headers]
@@ -161,22 +170,29 @@
     (when-let [object (first (.contents response))]
       (key->commit-number commits-prefix (.key ^S3Object object)))))
 
+(defn- object-exists?
+  [^S3Client client bucket key headers]
+  (try
+    (.headObject client (head-object-request bucket key headers))
+    true
+    (catch NoSuchKeyException _
+      false)
+    (catch S3Exception e
+      (if (service-not-found? e)
+        false
+        (throw e)))))
+
 (defrecord S3EventStore [^S3Client client bucket prefix headers]
   p/EventStore
   (try-append! [_ commit-number commit]
     (let [^S3Client client client
-          commit-number (long commit-number)
-          expected (if-some [latest (latest-commit-number* client bucket prefix headers)]
-                     (inc latest)
-                     0)]
-      (cond
-        (< commit-number expected)
-        false
-
-        (> commit-number expected)
-        (gap! commit-number expected)
-
-        :else
+          commit-number (long commit-number)]
+      ;; Avoid latest-commit-number* here: LIST is a Class A operation on object
+      ;; stores such as Tigris, while HEAD is Class B (roughly 10x cheaper).
+      ;; Checking the previous commit preserves gap-free append without listing
+      ;; on every write.
+      (if (or (zero? commit-number)
+              (object-exists? client bucket (commit-key prefix (dec commit-number)) headers))
         (let [key (commit-key prefix commit-number)]
           (try
             (let [request (put-object-request bucket key headers)]
@@ -189,7 +205,8 @@
                 false
                 (throw e)))
             (catch SdkClientException e
-              (ambiguous! commit-number commit e)))))))
+              (ambiguous! commit-number commit e))))
+        (gap! commit-number))))
 
   (get-commit [_ commit-number]
     (let [^S3Client client client

@@ -10,6 +10,8 @@
            (software.amazon.awssdk.services.s3 S3Client)
            (software.amazon.awssdk.services.s3.model GetObjectRequest
                                                       GetObjectResponse
+                                                      HeadObjectRequest
+                                                      HeadObjectResponse
                                                       ListObjectsV2Request
                                                       ListObjectsV2Response
                                                       NoSuchKeyException
@@ -106,6 +108,11 @@
          (ByteArrayInputStream. body))
         (throw (no-such-key))))
 
+    (^HeadObjectResponse headObject [_ ^HeadObjectRequest request]
+      (if (contains? @objects (.key request))
+        (-> (HeadObjectResponse/builder) (.build))
+        (throw (no-such-key))))
+
     (^ListObjectsV2Response listObjectsV2 [_ ^ListObjectsV2Request request]
       (let [prefix (.prefix request)
             objects (->> @objects
@@ -121,21 +128,26 @@
 
 (deftest extra-headers-are-added-to-s3-requests
   (let [seen (atom [])
+        objects (atom {})
         client (reify S3Client
-                 (^ListObjectsV2Response listObjectsV2 [_ ^ListObjectsV2Request request]
-                   (swap! seen conj [:list (request-headers request)])
-                   (-> (ListObjectsV2Response/builder)
-                       (.contents [])
-                       (.build)))
-                 (^PutObjectResponse putObject [_ ^PutObjectRequest request ^RequestBody _body]
+                 (^HeadObjectResponse headObject [_ ^HeadObjectRequest request]
+                   (swap! seen conj [:head (request-headers request)])
+                   (if (contains? @objects (.key request))
+                     (-> (HeadObjectResponse/builder) (.build))
+                     (throw (no-such-key))))
+                 (^PutObjectResponse putObject [_ ^PutObjectRequest request ^RequestBody body]
                    (swap! seen conj [:put (request-headers request)])
+                   (swap! objects assoc (.key request) (request-body->bytes body))
                    (-> (PutObjectResponse/builder) (.build))))
         store (s3/store {:client client
                          :bucket "events"
                          :prefix "streams/acme"
                          :headers {"X-Tigris-Consistent" "true"}})]
     (is (true? (p/try-append! store 0 commit-0)))
-    (is (= [[:list {"X-Tigris-Consistent" ["true"]}]
+    (is (true? (p/try-append! store 1 commit-1)))
+    (is (= [[:put {"X-Tigris-Consistent" ["true"]
+                   "If-None-Match" ["*"]}]
+            [:head {"X-Tigris-Consistent" ["true"]}]
             [:put {"X-Tigris-Consistent" ["true"]
                    "If-None-Match" ["*"]}]]
            @seen))))
