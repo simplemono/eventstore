@@ -172,7 +172,7 @@
       (catch clojure.lang.ExceptionInfo e
         (is (= :gap (:error (ex-data e))))
         (is (= 1 (:pack-index (ex-data e))))
-        (is (= 0 (:expected (ex-data e))))))))
+        (is (not (contains? (ex-data e) :expected)))))))
 
 (deftest try-pack-throws-when-a-commit-is-missing
   (let [objects (atom {})

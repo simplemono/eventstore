@@ -173,11 +173,10 @@
                    :commit-number commit-number})))
 
 (defn- pack-gap!
-  [pack-index expected]
+  [pack-index]
   (throw (ex-info "Pack write would create a gap"
                   {:error :gap
-                   :pack-index pack-index
-                   :expected expected})))
+                   :pack-index pack-index})))
 
 (defn- missing-pack!
   [pack-index key cause]
@@ -199,7 +198,6 @@
   (throw (ex-info "Invalid pack object"
                   {:error :invalid-pack
                    :pack-index pack-index
-                   :expected pack-size
                    :actual commit-count})))
 
 (defn- s3-config
@@ -250,7 +248,7 @@
       false
 
       (> pack-index expected)
-      (pack-gap! pack-index expected)
+      (pack-gap! pack-index)
 
       :else
       (write-pack! config source-store pack-index))))
