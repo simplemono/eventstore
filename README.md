@@ -14,15 +14,15 @@ The eventstore library allows you to store the events (source of truth) on a
 S3-compatible object-store. To avoid that your write-latency is becoming a
 nightmare you should better have one event-stream per tenant and use an
 object-store like Tigrisdata, Amazon S3 Express One Zone or Google Cloud Storage
-Rapid Bucket.
+Rapid Bucket (which all offer a relatively low write latency).
 
 Queries will be done on your read-model that could for example be a Sqlite db on
 the local disk. The events are the essential state while the read-model(s) are
 derived state. For a schema migration, disaster recovery or when you move a
 tenant from on cell to another, you just replay the events to recreate your
-read-model (Sqlite db file). Therefore you do not setup Litestream or any other
-backup mechanism for the read-model (you still can decide to store snapshots to
-reduce the time-to-recovery).
+read-model (Sqlite db file). Therefore you do not need to setup Litestream or
+any other backup mechanism for the read-model (you still can store snapshots if
+you want to reduce the time-to-recovery).
 
 ## Introduction
 
