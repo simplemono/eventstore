@@ -42,11 +42,10 @@
                             last)]
           (parse-commit-number key))))))
 
-(defn- gap! [commit-number expected]
+(defn- gap! [commit-number]
   (throw (ex-info "Append would create a gap"
                   {:error :gap
-                   :commit-number commit-number
-                   :expected expected})))
+                   :commit-number commit-number})))
 
 (defrecord FileEventStore [root]
   p/EventStore
@@ -63,7 +62,7 @@
                          (inc latest)
                          0)]
           (when-not (= commit-number expected)
-            (gap! commit-number expected))
+            (gap! commit-number))
           (try
             (Files/writeString path
                                (pr-str commit)
