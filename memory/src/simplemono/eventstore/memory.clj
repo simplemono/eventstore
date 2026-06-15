@@ -1,11 +1,10 @@
 (ns simplemono.eventstore.memory
   (:require [simplemono.eventstore.protocols :as p]))
 
-(defn- gap! [commit-number expected]
+(defn- gap! [commit-number]
   (throw (ex-info "Append would create a gap"
                   {:error :gap
-                   :commit-number commit-number
-                   :expected expected})))
+                   :commit-number commit-number})))
 
 (defn- ambiguous! [commit-number commit]
   (throw (ex-info "Append outcome ambiguous"
@@ -27,7 +26,7 @@
           false
 
           (not= commit-number next-number)
-          (gap! commit-number next-number)
+          (gap! commit-number)
 
           :else
           (do
