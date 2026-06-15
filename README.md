@@ -56,8 +56,8 @@ There is intentionally no root `deps.edn`.
   AWS SDK.
 - `s3-packs/` — `simplemono.eventstore.s3-packs`, an optional cold-replay
   optimization for S3 stores. It can create immutable 1000-commit gzip packs and
-  provide a read-only pack-aware replay `EventStore`. Depends on `protocols/`
-  and `s3/`.
+  provide a pack-aware `EventStore` that delegates appends to S3 commits.
+  Depends on `protocols/` and `s3/`.
 
 S3 stores are constructed with a bucket and stream prefix, e.g.
 `streams/tenant/acme`, and then implement only single-stream commit operations.
@@ -82,7 +82,7 @@ simplemono/eventstore-file {:local/root "file"}
 ;; S3 store, includes the AWS SDK:
 simplemono/eventstore-s3 {:local/root "s3"}
 
-;; Optional pack-aware replay store and pack writer:
+;; Optional pack-aware S3 store and pack writer:
 simplemono/eventstore-s3-packs {:local/root "s3-packs"}
 ```
 
@@ -157,35 +157,31 @@ Pack writes are create-only and gap-free, so racing packers are safe: one wins
 and the others return false.
 
 ```clojure
-(require '[simplemono.eventstore.s3 :as s3]
+(require '[simplemono.eventstore.protocols :as p]
          '[simplemono.eventstore.s3-packs :as packs])
 
-(def source-store
-  (s3/store {:client client
-             :bucket "events"
-             :prefix "streams/tenant/acme"}))
+(def store
+  (packs/store {:client client
+                :bucket "events"
+                :prefix "streams/tenant/acme"}))
 
 ;; External/background job:
 (packs/try-pack! {:client client
                   :bucket "events"
                   :prefix "streams/tenant/acme"}
-                 source-store
+                 store
                  0)
 ;; => true if created, false if already present
 
-;; Replay process:
-(def replay-store
-  (packs/store {:client client
-                :bucket "events"
-                :prefix "streams/tenant/acme"}))
+;; Normal writes still use S3 commit objects:
+(p/try-append! store 0 commit)
 ```
 
-The pack-aware replay store implements the `EventStore` protocol for reads:
-`latest-commit-number` delegates to the S3 store. On first packed read,
+The pack-aware store implements the full `EventStore` protocol. `try-append!`
+and `latest-commit-number` delegate to the S3 store. On first packed read,
 `get-commit` lists `packs/` once to find the newest pack and assumes packs are
 contiguous from pack 0 through that pack. Packed ranges are served from packs;
-the unpacked tail falls back to individual commit objects. `try-append!` throws
-`{:error :read-only}`.
+the unpacked tail falls back to individual commit objects.
 
 ## Minimal usage
 

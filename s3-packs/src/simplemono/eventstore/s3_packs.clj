@@ -20,13 +20,13 @@
    creates the next expected pack, false when that pack already exists, and
    throws {:error :gap} if asked to skip a pack index.
 
-   A pack-aware replay store implements EventStore reads by listing the packs/
-   prefix once to find the latest pack index, assuming packs are contiguous from
-   0 through that latest index, serving those full 1000-commit ranges from
-   packs, and falling back to the underlying S3 EventStore for the unpacked
-   tail. It keeps only the current pack in memory and does not prefetch. Missing
-   packs inside the discovered packed range are treated as invariant violations
-   and throw {:error :missing-pack}."
+   A pack-aware store delegates appends to the underlying S3 EventStore and
+   implements reads by listing the packs/ prefix once to find the latest pack
+   index, assuming packs are contiguous from 0 through that latest index,
+   serving those full 1000-commit ranges from packs, and falling back to the
+   underlying S3 EventStore for the unpacked tail. It keeps only the current pack
+   in memory and does not prefetch. Missing packs inside the discovered packed
+   range are treated as invariant violations and throw {:error :missing-pack}."
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
             [simplemono.eventstore.protocols :as p]
@@ -316,10 +316,8 @@
 (defrecord PackedReplayEventStore [^S3Client client bucket prefix headers delegate
                                    state]
   p/EventStore
-  (try-append! [_ commit-number _commit]
-    (throw (ex-info "Pack-aware replay store is read-only"
-                    {:error :read-only
-                     :commit-number (long commit-number)})))
+  (try-append! [_ commit-number commit]
+    (p/try-append! delegate commit-number commit))
 
   (get-commit [this commit-number]
     (let [commit-number (long commit-number)
@@ -333,13 +331,13 @@
     (p/latest-commit-number delegate)))
 
 (defn store
-  "Create a read-only, pack-aware replay EventStore.
+  "Create a pack-aware S3 EventStore.
 
-   Options are the same as simplemono.eventstore.s3/store. Reads list the packs
-   prefix once to find the latest contiguous pack index. Commit numbers covered
-   by that packed range are read from deterministic pack keys; later tail
-   commits are read through the underlying S3 store. try-append! always throws
-   {:error :read-only}."
+   Options are the same as simplemono.eventstore.s3/store. Appends are delegated
+   to the underlying S3 store. Reads list the packs prefix once to find the
+   latest contiguous pack index. Commit numbers covered by that packed range are
+   read from deterministic pack keys; later tail commits are read through the
+   underlying S3 store."
   [opts]
   (let [{:keys [client bucket prefix headers]} (s3-config opts)
         delegate (s3/store {:client client

@@ -14,6 +14,8 @@
            (software.amazon.awssdk.services.s3 S3Client)
            (software.amazon.awssdk.services.s3.model GetObjectRequest
                                                       GetObjectResponse
+                                                      HeadObjectRequest
+                                                      HeadObjectResponse
                                                       ListObjectsV2Request
                                                       ListObjectsV2Response
                                                       NoSuchKeyException
@@ -98,6 +100,13 @@
           (ResponseInputStream.
            (-> (GetObjectResponse/builder) (.build))
            (ByteArrayInputStream. body))
+          (throw (no-such-key)))))
+
+    (^HeadObjectResponse headObject [_ ^HeadObjectRequest request]
+      (let [key (.key request)]
+        (swap! requests conj [:head key (request-headers request)])
+        (if (contains? @objects key)
+          (-> (HeadObjectResponse/builder) (.build))
           (throw (no-such-key)))))
 
     (^ListObjectsV2Response listObjectsV2 [_ ^ListObjectsV2Request request]
@@ -235,17 +244,20 @@
     (is (= 1 (count-requests requests :get (s3/commit-key prefix 0))))
     (is (= 1 (count-requests requests :get (s3/commit-key prefix 1))))))
 
-(deftest replay-store-is-read-only
+(deftest pack-aware-store-appends-through-s3-commits
   (let [objects (atom {})
         requests (atom [])
         store (packs/store {:client (fake-s3-client objects requests)
                             :bucket "events"
                             :prefix prefix})]
-    (try
-      (p/try-append! store 0 (commit 0))
-      (is false "expected read-only exception")
-      (catch clojure.lang.ExceptionInfo e
-        (is (= :read-only (:error (ex-data e))))))))
+    (is (true? (p/try-append! store 0 (commit 0))))
+    (is (false? (p/try-append! store 0 (commit 0))))
+    (is (true? (p/try-append! store 1 (commit 1))))
+    (is (= (commit 0) (p/get-commit store 0)))
+    (is (= (commit 1) (p/get-commit store 1)))
+    (is (contains? @objects (s3/commit-key prefix 0)))
+    (is (contains? @objects (s3/commit-key prefix 1)))
+    (is (= 1 (count-requests requests :head (s3/commit-key prefix 0))))))
 
 (defn -main [& _]
   (let [{:keys [fail error]} (run-tests 'simplemono.eventstore.s3-packs-test)]

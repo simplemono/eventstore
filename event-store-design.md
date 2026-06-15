@@ -129,8 +129,8 @@ Modules:
 - `memory/` — `simplemono.eventstore.memory`, pure in-memory EventStore for
   tests.
 - `s3-packs/` — `simplemono.eventstore.s3-packs`, optional S3 cold-replay
-  optimization. It creates immutable pack objects and provides a read-only
-  pack-aware replay `EventStore`.
+  optimization. It creates immutable pack objects and provides a pack-aware
+  `EventStore` that delegates appends to S3 commits.
 
 ## Application-owned command loop
 
@@ -203,17 +203,17 @@ wins and the others return false. Pack creation is gap-free: attempting to write
 beyond the next expected pack throws `{:error :gap}`. `pack-completed-ranges!`
 attempts all full ranges below the current head.
 
-The pack-aware replay store is read-only. It implements the same `EventStore`
-read protocol: `latest-commit-number` delegates to the S3 store. On first
-packed read, `get-commit` lists `packs/` once to find the newest pack and then
-assumes packs are contiguous from pack 0 through that newest pack. Commit
-numbers covered by that packed range are loaded from deterministic pack keys;
-the unpacked tail falls back to individual commit objects. During sequential
-replay it keeps one current pack in memory.
+The pack-aware store implements the same `EventStore` protocol. `try-append!`
+and `latest-commit-number` delegate to the S3 store. On first packed read,
+`get-commit` lists `packs/` once to find the newest pack and then assumes packs
+are contiguous from pack 0 through that newest pack. Commit numbers covered by
+that packed range are loaded from deterministic pack keys; the unpacked tail
+falls back to individual commit objects. During sequential replay it keeps one
+current pack in memory.
 
 Missing packs inside the discovered packed range are treated as store invariant
-violations. Deleting packs can therefore break a pack-aware replay store;
-rebuild packs or use the plain S3 store to replay without packs.
+violations. Deleting packs can therefore break pack-aware reads; rebuild packs
+or use the plain S3 store to replay without packs.
 
 ## Testing
 
