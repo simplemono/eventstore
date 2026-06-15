@@ -3,6 +3,21 @@
 A small Clojure event-store library based on the design in
 `event-store-design.md`.
 
+## Why
+
+I want to use it for our projects. We are running a SaaS with a cell-based
+architecture. More tenants on a cell (a dedicated server) means less disk space
+left. Events are immutable, so disk usage will always increase. Events will only
+be deleted, when the tenant (customer) is being deleted.
+
+The eventstore library allows you to store the events (source of truth) on a
+S3-compatible object-store. To avoid that your write-latency is becoming a
+nightmare you should better have one event-stream per tenant and use an
+object-store like Tigrisdata, Amazon S3 Express One Zone or Google Cloud Storage
+Rapid Bucket.
+
+## Introduction
+
 The library is intentionally minimal: it provides an append-only, single-stream
 commit log. Command handling, projections, retries, and idempotency live in the
 application.
