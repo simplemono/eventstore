@@ -92,8 +92,8 @@ encoding such as Nippy bytes.
 {:commit/number     42
  :commit/id         #uuid "..."
  :commit/timestamp  #inst "..."
- :commit/events     [{:event/id #uuid "..." :event/type :order/placed ...}
-                     {:event/id #uuid "..." :event/type :payment/captured ...}]}
+ :commit/events     [{:event/id #uuid "..." :event/kind :order/placed ...}
+                     {:event/id #uuid "..." :event/kind :payment/captured ...}]}
 ```
 
 - `:commit/id` disambiguates ambiguous append timeouts: after a timeout, GET the

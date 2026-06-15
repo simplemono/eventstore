@@ -29,7 +29,7 @@
   {:commit/number n
    :commit/id (java.util.UUID/nameUUIDFromBytes
                (.getBytes (str "commit-" n) StandardCharsets/UTF_8))
-   :commit/events [{:event/type :example/happened
+   :commit/events [{:event/kind :example/happened
                     :event/n n}]})
 
 (defn- utf8

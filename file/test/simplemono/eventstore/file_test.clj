@@ -12,7 +12,7 @@
    :commit/id #uuid "00000000-0000-0000-0000-000000000001"
    :commit/timestamp #inst "2026-01-01T00:00:00.000-00:00"
    :commit/events [{:event/id #uuid "00000000-0000-0000-0000-000000000101"
-                    :event/type :example/created}]})
+                    :event/kind :example/created}]})
 
 (deftest file-store-uses-create-only-commits
   (let [store (file/store (temp-dir))]

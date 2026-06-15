@@ -47,14 +47,14 @@
    :commit/id #uuid "00000000-0000-0000-0000-000000000001"
    :commit/timestamp #inst "2026-01-01T00:00:00.000-00:00"
    :commit/events [{:event/id #uuid "00000000-0000-0000-0000-000000000101"
-                    :event/type :example/created}]})
+                    :event/kind :example/created}]})
 
 (def commit-1
   {:commit/number 1
    :commit/id #uuid "00000000-0000-0000-0000-000000000002"
    :commit/timestamp #inst "2026-01-01T00:00:01.000-00:00"
    :commit/events [{:event/id #uuid "00000000-0000-0000-0000-000000000102"
-                    :event/type :example/updated}]})
+                    :event/kind :example/updated}]})
 
 (defn- no-such-key
   []

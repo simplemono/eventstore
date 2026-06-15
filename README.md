@@ -200,7 +200,7 @@ the unpacked tail falls back to individual commit objects. `try-append!` throws
    :commit/id (java.util.UUID/randomUUID)
    :commit/timestamp (java.util.Date.)
    :commit/events [{:event/id (java.util.UUID/randomUUID)
-                    :event/type :example/happened}]})
+                    :event/kind :example/happened}]})
 
 (p/try-append! store 0 commit)
 ;; => true
